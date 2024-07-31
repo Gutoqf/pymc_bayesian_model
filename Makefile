@@ -1,4 +1,4 @@
-.PHONY: init lint check_lint format check_format test html cleandocs run_notebooks uml
+.PHONY: init lint check_lint format check_format test doctest html cleandocs run_notebooks uml
 
 PACKAGE_DIR = pymc_marketing
 
@@ -26,6 +26,10 @@ check_format:
 test:
 	pip install .[test]
 	pytest
+
+doctest:
+	pip install .[test]
+	pytest --doctest-modules $(PACKAGE_DIR)
 
 html:
 	pip install .[docs]
