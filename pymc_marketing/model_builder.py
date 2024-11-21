@@ -47,6 +47,35 @@ except ImportError:
         return X
 
 
+def create_idata_accessor(value: str, message: str):
+    """Create a property accessor for an InferenceData object.
+
+    Underlying object must have an InferenceData object attribute named 'idata'.
+
+    Parameters
+    ----------
+    value : str
+        The value to access in the InferenceData object.
+    message : str
+        The error message to raise if the value is not found in the InferenceData object.
+
+    Returns
+    -------
+    property
+        The property accessor for the InferenceData object.
+
+    """
+
+    def accessor(self) -> xr.Dataset:
+        __doc__ = f"""Access the '{value}' attribute of the InferenceData object."""  # noqa: F841
+        if self.idata is None or value not in self.idata:
+            raise RuntimeError(message)
+
+        return self.idata[value]
+
+    return property(accessor)
+
+
 def create_sample_kwargs(
     sampler_config: dict[str, Any],
     progressbar: bool | None,
@@ -603,11 +632,15 @@ class ModelBuilder(ABC):
         Initializing NUTS using jitter+adapt_diag...
 
         """
+        if isinstance(y, pd.Series) and not X.index.equals(y.index):
+            raise ValueError("Index of X and y must match.")
+
         if predictor_names is None:
             predictor_names = []
         if y is None:
             y = np.zeros(X.shape[0])
-        y_df = pd.DataFrame({self.output_var: y})
+
+        y_df = pd.DataFrame({self.output_var: y}, index=X.index)
         self._generate_and_preprocess_model_data(X, y_df.values.flatten())
         if self.X is None or self.y is None:
             raise ValueError("X and y must be set before calling build_model!")
@@ -900,3 +933,21 @@ class ModelBuilder(ABC):
         hasher.update(self.version.encode())
         hasher.update(self._model_type.encode())
         return hasher.hexdigest()[:16]
+
+    prior = create_idata_accessor(
+        "prior",
+        "Call the 'sample_prior_predictive' method first.",
+    )
+    prior_predictive = create_idata_accessor(
+        "prior_predictive",
+        "Call the 'sample_prior_predictive' method first.",
+    )
+    posterior = create_idata_accessor("posterior", "Call the 'fit' method first.")
+    posterior_predictive = create_idata_accessor(
+        "posterior_predictive",
+        "Call the 'sample_posterior_predictive' method first.",
+    )
+    predictions = create_idata_accessor(
+        "predictions",
+        "Call the 'sample_posterior_predictive' method with predictions=True first.",
+    )
